@@ -11,10 +11,10 @@
 #include "gomoku_forbidden_move.h" //禁手
 #include "gomoku_evaluate.h" //估价相关函数
 #define BOARD_SIZE 15
-#define SEARCH_DEPTH 8 //搜索层数8层
+#define SEARCH_DEPTH 10 //搜索层数8层
 #define ll long long
 clock_t searchStart;
-double timeLimit = 14.5;   
+double timeLimit = 14.7;   
 int timeUp = 0;
 
 // 置换表类型枚举
@@ -210,6 +210,7 @@ long long minimax(GameState *gameState, int depth,
     int moveCnt = 0;
 
     /* ---------- 生成候选 ---------- */
+    
     for (int i = 0; i < 15; i++) {
         for (int j = 0; j < 15; j++) {
             if (localArea[i][j] &&
@@ -218,30 +219,28 @@ long long minimax(GameState *gameState, int depth,
                             isMax ? AIcolor : playercolor)) {
 
                 gameState->board[i][j] = isMax ? AIcolor : playercolor;
-                // updateHash(i, j, EMPTY,
-                //            isMax ? AIcolor : playercolor);
                 long long s = calculateLocalScore(gameState, i, j, isMax);
                 gameState->board[i][j] = EMPTY;
-                // updateHash(i, j,
-                //            isMax ? AIcolor : playercolor, EMPTY);
+                
                 moves[moveCnt++] = (CandidatePos){i, j, s};
             }
         }
     }
     sortCandidates(moves, moveCnt);
-    CandidatePos cand[10];
+    CandidatePos cand[20];
     int cnt = 0;
 
     /* ================= MAX ================= */
     if (isMax) {
         long long maxEval = -1e18;
         int bestrow = -1, bestcol = -1;
-        for (int k = 0; k < min(20, moveCnt); k++) {
+        for (int k = -1; k < min(20, moveCnt); k++) {
+            
             int i = moves[k].row, j = moves[k].col;
             if (gameState->board[i][j] != EMPTY) continue;
             long long nowscore = gameState->Score;
             gameState->board[i][j] = AIcolor;
-            gameState->Score += moves[k].score;
+            
             updateHash(i, j, EMPTY, AIcolor);
             vis[i][j] = 1;
             if (Checkwin(gameState, i, j) == 1e14) {
@@ -256,11 +255,19 @@ long long minimax(GameState *gameState, int depth,
                 }
                 return 1e14;
             }
-
-            long long eval = minimax(gameState, depth - 1,
+            long long eval;
+           if(k == 0){
+                eval = minimax(gameState, depth - 1,
                                      alpha, beta, 0);
+            }
+            else {
+                eval = minimax(gameState,depth-1, alpha, alpha+1, 0); // 零窗口
+                if (eval > alpha && eval < beta) {
+                    eval = minimax(gameState,depth-1, alpha, beta, 0); // re-search
+                }
+            }
 
-            if (eval > 1e11 && !In[forbidRow][forbidCol] && cnt < 5) {
+            if (eval < -1e11 && !In[forbidRow][forbidCol] && cnt < 10) {
                 cand[++cnt].row = forbidRow;
                 cand[cnt].col = forbidCol;
                 In[forbidRow][forbidCol] = 1;
@@ -280,6 +287,7 @@ long long minimax(GameState *gameState, int depth,
             }
 
             alpha = max(alpha, eval);
+
             if (alpha >= beta)
                 break;
         }
@@ -293,9 +301,12 @@ long long minimax(GameState *gameState, int depth,
             gameState->board[i][j] = AIcolor;
             updateScore(gameState, i, j, 1);
             updateHash(i, j, EMPTY, AIcolor);
-            long long eval = minimax(gameState, depth - 1,
-                                     alpha, beta, 0);
-
+            long long eval;
+            
+            eval = minimax(gameState,depth-1, alpha, alpha+1, 0); // 零窗口
+            if (eval > alpha && eval < beta) {
+                eval = minimax(gameState,depth-1, alpha, beta, 0); // re-search
+            }
             gameState->board[i][j] = EMPTY;
             updateHash(i, j, AIcolor, EMPTY);
             gameState->Score = nowscore;
@@ -360,10 +371,18 @@ long long minimax(GameState *gameState, int depth,
                 return -1e14;
             }
 
-            long long eval = minimax(gameState, depth - 1,
-                                     alpha, beta, 1);
-
-            if (eval < -1e11 && !In[forbidRow][forbidCol] && cnt < 5) {
+            long long eval;
+            if(k == 0){
+                eval = minimax(gameState, depth - 1,
+                                     alpha, beta, 1);    
+            }
+            else{
+                eval = minimax(gameState,depth-1, beta-1, beta, 1);
+                if (eval < beta && eval > alpha) {
+                    eval = minimax(gameState,depth-1, alpha, beta, 1);
+                }
+            }
+            if (eval > 1e11 && !In[forbidRow][forbidCol] && cnt < 10) {
                 cand[++cnt].row = forbidRow;
                 cand[cnt].col = forbidCol;
                 In[forbidRow][forbidCol] = 1;
@@ -389,8 +408,10 @@ long long minimax(GameState *gameState, int depth,
             gameState->board[i][j] = playercolor;
             updateScore(gameState, i, j, 0);
             updateHash(i, j, EMPTY, playercolor);
-            long long eval = minimax(gameState, depth - 1,
-                                     alpha, beta, 1);
+            long long eval =  eval = minimax(gameState,depth-1, beta-1, beta, 1);
+            if (eval < beta && eval > alpha) {
+                eval = minimax(gameState,depth-1, alpha, beta, 1);
+            }
             gameState->board[i][j] = EMPTY;
             updateHash(i, j, playercolor, EMPTY);
             gameState->Score = nowscore;
