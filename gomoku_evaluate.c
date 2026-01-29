@@ -153,7 +153,7 @@ ll Checkwin(GameState *gameState, int row, int col) {
 
     /* 冲四 + 活三 */
     if (rush4 >= 1 && live3 >= 1)
-        return 1e14;
+        return 1e13;
 
     /* 双活三（最弱必胜） */
     if (live3 >= 2)
@@ -231,7 +231,7 @@ int checkFourThreat(GameState *gameState, CellState color, int *blockRow, int *b
 
 // 计算落子的局部评分
 long long calculateLocalScore(GameState *gameState, int row, int col, int isAI) {
-    long long val = checkWin(gameState,row,col);
+    long long val = Checkwin(gameState,row,col);
     if(val){ 
         return val;
     } 
